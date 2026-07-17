@@ -213,7 +213,7 @@ var _alertView='nursery', _analysisView='sales', posCart={}, poCart={};
 function toggleDarkMode() { document.body.classList.toggle('dark-mode'); var isDark = document.body.classList.contains('dark-mode'); localStorage.setItem('nr_dark_mode', isDark ? '1' : '0'); var btn = document.querySelector('.gear-btn'); if(btn) btn.innerHTML = isDark ? '☀️' : '🌙'; }
 function loadDarkMode() { if (localStorage.getItem('nr_dark_mode') === '1') { document.body.classList.add('dark-mode'); var btn = document.querySelector('.gear-btn'); if(btn) btn.innerHTML = '☀️'; } }
 var _idC=0, curTab='summary', mMode=null, mId=null, currentUser=null, currentRole='مدير نظام', _loginSelUser=null, delInfo={}, _filterFrom='', _filterTo='', _cropSortBy='name', _summaryView='dashboard', _stmtType='client', _stmtEntity='', _stmtView='detailed', _reconAcc='acc_bank', _searchQuery='', scannerInstance=null, _searchTimer=null;
-var DATA_KEYS=['operation','orders','items','clients','suppliers','employees','production','delivered','invoices','payments','expenses','purchaseInvoices','warehouses','categories','cashboxes','regions','accounts','ledger','auditLog','payroll','fixedAssets','openingBalances','inventoryAdj','costCenters','waste','returns','attendance','itemOpening'];
+var DATA_KEYS=['users','operation','orders','items','clients','suppliers','employees','production','delivered','invoices','payments','expenses','purchaseInvoices','warehouses','categories','cashboxes','regions','accounts','ledger','auditLog','payroll','fixedAssets','openingBalances','inventoryAdj','costCenters','waste','returns','attendance','itemOpening'];
 var D={}; var handlers={};
 var localforageConfig = null;
 try {
@@ -242,8 +242,8 @@ var SHEETS=[{key:'summary',name:'الملخص',icon:'📊'},{key:'pos',name:'ن�
 var DEFAULT_ROLES = [{ name: 'مدير نظام', isEditor: true, canDelete: true, canAccessSettings: true, screens: 'all' },{ name: 'المدير التنفيذي', isEditor: true, canDelete: true, canAccessSettings: true, screens: 'all' },{ name: 'مدير عمل', isEditor: true, canDelete: false, canAccessSettings: false, screens: ['summary','pos','posorder','operation','orders','items','inventory','delivered','production','employees','attendance','payroll','alerts','analysis'] },{ name: 'محاسب', isEditor: true, canDelete: false, canAccessSettings: false, screens: ['summary','pos','posorder','invoices','returns','payments','expenses','purchaseInvoices','clients','suppliers','accounts','journal','trialbalance','pnl','balancesheet','statement','aging','bankrec','vatreturn','openingBalances','alerts','analysis'] }];
 function uid(){return++_idC} 
 function H(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')} 
-function getUsers(){try{var u=JSON.parse(localStorage.getItem('nr_users'));return Array.isArray(u)&&u.length?u:[]}catch(e){return[]}} 
-function saveUsers(u){localStorage.setItem('nr_users',JSON.stringify(u))} 
+function getUsers(){ if(D.users && D.users.length) return D.users; try{var u=JSON.parse(localStorage.getItem('nr_users'));return Array.isArray(u)&&u.length?u:[]}catch(e){return[]}} 
+function saveUsers(u){ D.users = u; localStorage.setItem('nr_users',JSON.stringify(u)); if(typeof saveD === 'function') saveD('users'); } 
 function getNurseryName(){return localStorage.getItem('nr_nursery_name')||'نظام ادارة المشاتل فني محاسبي '} 
 function fm(n){if(n==null||isNaN(n))return'0';return Number(n).toLocaleString('en-US',{minimumFractionDigits:0,maximumFractionDigits:2})} 
 function simpleHash(s){var h=0;for(var i=0;i<s.length;i++){h=((h<<5)-h)+s.charCodeAt(i);h|=0}return'h'+Math.abs(h).toString(36)} 
