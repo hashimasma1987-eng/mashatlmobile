@@ -15,6 +15,8 @@
 <script defer src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/localforage/1.10.0/localforage.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 <style>
 :root{--bg:#F0EDE6;--card:#fff;--hd:#162B1E;--fg:#1A2E1A;--fg2:#3D5A3D;--mt:#8A9A8A;--ac:#C45D3E;--gn:#2D6B45;--gnl:#E8F5EC;--gnd:#162B1E;--bd:#D8D2C8;--dn:#B83226;--sh:0 1px 3px rgba(22,43,30,.08)}
 *{margin:0;padding:0;box-sizing:border-box}body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--fg);min-height:100vh;min-height:100dvh;display:flex;flex-direction:column;-webkit-tap-highlight-color:transparent;overscroll-behavior:none}::-webkit-scrollbar{width:4px;height:4px}::-webkit-scrollbar-thumb{background:var(--mt);border-radius:3px}input,select,textarea,button{font-family:inherit}
@@ -221,6 +223,21 @@ try {
 } catch(e) {
     console.log("سيتم استخدام التخزين العادي");
 }
+// تهيئة الاتصال بـ Firebase
+var db = null;
+try {
+    var firebaseConfig = {
+        apiKey: "AIzaSyDKWp5k6gnf7bF0Mlyz8lebeW6_j2mVQmQ",
+        authDomain: "nursery-erp-63713.firebaseapp.com",
+        projectId: "nursery-erp-63713",
+        storageBucket: "nursery-erp-63713.firebasestorage.app",
+        messagingSenderId: "804355879833",
+        appId: "1:804355879833:web:bcb2a9c047d28069231908",
+        measurementId: "G-F262SSEYJY"
+    };
+    firebase.initializeApp(firebaseConfig);
+    db = firebase.firestore();
+} catch(e) { console.log("Firebase init error", e); }
 var SHEETS=[{key:'summary',name:'الملخص',icon:'📊'},{key:'pos',name:'نقطة البيع',icon:'🛒'},{key:'posorder',name:'نقطة الطلب',icon:'📝'},{key:'operation',name:'التشغيل',icon:'🌱'},{key:'orders',name:'الطلبيات',icon:'📋'},{key:'items',name:'الأصناف',icon:'📦'},{key:'inventory',name:'المخزون',icon:'🗄️'},{key:'invoices',name:'الفواتير',icon:'🧾'},{key:'returns',name:'المرتجعات',icon:'↩️'},{key:'payments',name:'السندات',icon:'💰'},{key:'expenses',name:'المصروفات',icon:'💸'},{key:'purchaseInvoices',name:'المشتريات',icon:'🛒'},{key:'clients',name:'العملاء',icon:'👥'},{key:'suppliers',name:'الموردون',icon:'🏭'},{key:'employees',name:'الموظفون',icon:'👷'},{key:'attendance',name:'الحضور',icon:'🕓'},{key:'payroll',name:'مسير الرواتب',icon:'💵'},{key:'production',name:'الإنتاج',icon:'✅'},{key:'delivered',name:'المسلمات',icon:'🚚'},{key:'fixedAssets',name:'الأصول الثابتة',icon:'🏗️'},{key:'inventoryAdj',name:'تسوية المخزون',icon:'⚖️'},{key:'bankrec',name:'مطابقة الحسابات',icon:'🏦'},{key:'vatreturn',name:'الإقرار الضريبي',icon:'🧾'},{key:'costcenters',name:'مراكز التكلفة',icon:'🎯'},{key:'statement',name:'كشف حساب',icon:'📑'},{key:'aging',name:'أعمار الديون',icon:'⏳'},{key:'balances',name:'الأرصدة',icon:'⚖️'},{key:'pnl',name:'الأرباح والخسائر',icon:'📉'},{key:'accounts',name:'شجرة الحسابات',icon:'🌳'},{key:'journal',name:'اليومية',icon:'📒'},{key:'trialbalance',name:'ميزان المراجعة',icon:'⚖️'},{key:'balancesheet',name:'الميزانية العمومية',icon:'🏦'},{key:'openingBalances',name:'أرصدة أول المدة',icon:'🔛'},{key:'auditlog',name:'سجل النشاط',icon:'📜'},{key:'alerts',name:'التنبيهات',icon:'🔔'},{key:'analysis',name:'التحليل',icon:'📈'}];
 var DEFAULT_ROLES = [{ name: 'مدير نظام', isEditor: true, canDelete: true, canAccessSettings: true, screens: 'all' },{ name: 'المدير التنفيذي', isEditor: true, canDelete: true, canAccessSettings: true, screens: 'all' },{ name: 'مدير عمل', isEditor: true, canDelete: false, canAccessSettings: false, screens: ['summary','pos','posorder','operation','orders','items','inventory','delivered','production','employees','attendance','payroll','alerts','analysis'] },{ name: 'محاسب', isEditor: true, canDelete: false, canAccessSettings: false, screens: ['summary','pos','posorder','invoices','returns','payments','expenses','purchaseInvoices','clients','suppliers','accounts','journal','trialbalance','pnl','balancesheet','statement','aging','bankrec','vatreturn','openingBalances','alerts','analysis'] }];
 function uid(){return++_idC} 
@@ -314,12 +331,28 @@ function syncIdCounter() { var maxId = 0; DATA_KEYS.forEach(function(k) { (D[k] 
 var localforageConfig = (typeof localforage !== 'undefined') ? localforage.createInstance({ name: 'nursery-erp', storeName: 'nursery_db' }) : null;
 
 async function loadD(){
+    // --- سحب البيانات من Firebase أولاً ---
+    if (db) {
+        try {
+            const snapshot = await db.collection("app_data").get();
+            snapshot.forEach(function(doc) {
+                var d = doc.data();
+                if (d && d.data) {
+                    D[doc.id] = d.data;
+                    if (localforageConfig) localforageConfig.setItem('nr_'+doc.id, JSON.stringify(d.data));
+                    else localStorage.setItem('nr_'+doc.id, JSON.stringify(d.data));
+                }
+            });
+            console.log('✅ تمت مزامنة البيانات من Firebase بنجاح');
+        } catch(e) { console.error("Firebase Load Error:", e); }
+    }
+    // --- نهاية السحب السحابي ---
+
     var needsMigration = localStorage.getItem('nr_needs_migration');
     for(var i=0; i<DATA_KEYS.length; i++){
         var k = DATA_KEYS[i];
         try {
             var val = null;
-            // إذا كانت المكتبة محملة، اقرأ منها
             if (localforageConfig) {
                 val = await localforageConfig.getItem('nr_'+k);
             }
@@ -330,10 +363,10 @@ async function loadD(){
                     D[k] = JSON.parse(oldVal);
                     if (localforageConfig) await localforageConfig.setItem('nr_'+k, oldVal); 
                 } else {
-                    D[k] = [];
+                    if(!D[k]) D[k] = [];
                 }
             } else {
-                D[k] = val ? JSON.parse(val) : (localStorage.getItem('nr_'+k) ? JSON.parse(localStorage.getItem('nr_'+k)) : []);
+                if(!D[k]) D[k] = val ? JSON.parse(val) : (localStorage.getItem('nr_'+k) ? JSON.parse(localStorage.getItem('nr_'+k)) : []);
             }
         } catch(e) {
             D[k] = localStorage.getItem('nr_'+k) ? JSON.parse(localStorage.getItem('nr_'+k)) : [];
@@ -350,7 +383,6 @@ async function loadD(){
     }
     syncIdCounter(); 
 }
-
 function saveD(key){
     if(key){
         var el=document.getElementById('save-indicator');
@@ -358,28 +390,24 @@ function saveD(key){
         el.style.opacity='1';
         var dataStr = JSON.stringify(D[key]);
         
-        // إذا كانت المكتبة محملة، احفظ فيها
+        // 1. الحفظ المحلي (IndexedDB أو LocalStorage)
         if (localforageConfig) {
-            localforageConfig.setItem('nr_'+key, dataStr).then(function() {
-                el.textContent='✓ تم الحفظ';
-                setTimeout(function(){ el.style.opacity='0'; }, 1200);
-            }).catch(function(err) {
-                console.error('Save Error:', err);
-                el.textContent='⚠️ خطأ في الحفظ';
-            });
+            localforageConfig.setItem('nr_'+key, dataStr).catch(function(e){ console.error(e); });
         } else {
-            // إذا لم تكن محملة، احفظ في التخزين العادي
             localStorage.setItem('nr_'+key, dataStr);
-            el.textContent='✓ تم الحفظ';
-            setTimeout(function(){ el.style.opacity='0'; }, 1200);
+        }
+        
+        el.textContent='✓ تم الحفظ';
+        setTimeout(function(){ el.style.opacity='0'; }, 1200);
+
+        // 2. الرفع للسحابة (Firebase Firestore) في الخلفية
+        if (db) {
+            db.collection("app_data").doc(key).set({
+                data: D[key],
+                updatedAt: new Date().toISOString()
+            }).catch(function(e){ console.error("Firebase Sync Error:", e); });
         }
     }
-}// دالة لإضافة طابع الزمني لأي عنصر يتم حفظه
-function stampRecord(obj) {
-    if (obj && typeof obj === 'object') {
-        obj.updatedAt = new Date().toISOString();
-    }
-    return obj;
 }
 
 // دالة لجلب البيانات النشطة فقط (تتجاهل المحذوف ناعماً)
@@ -387,15 +415,6 @@ function getActive(key) {
     if (!D[key]) return [];
     return D[key].filter(function(r) { return !r.isDeleted; });
 }
-
-// دالة لتطبيق الطابع الزمني على المصفوفات عند الحفظ (مهم جداً للمزامنة)
-var originalSaveD = saveD;
-saveD = function(key) {
-    if (D[key] && Array.isArray(D[key])) {
-        // لا نعدل العناصر القديمة، فقط نضمن أن المصفوفة جاهزة
-    }
-    originalSaveD(key);
-};
 function getActive(key) { if (!D[key]) return []; return D[key].filter(function(r) { return !r.isDeleted; }); }
 function stampRecord(obj) { if (obj && typeof obj === 'object') { obj.updatedAt = new Date().toISOString(); } return obj; }
 function getActive(key) { if (!D[key]) return []; return D[key].filter(function(r) { return !r.isDeleted; }); }
