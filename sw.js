@@ -1,4 +1,4 @@
-const CACHE_NAME = 'nursery-erp-cache-v5';
+const CACHE_NAME = 'nursery-erp-cache-v6'; // تم رفع الإصدار إلى v6
 const urlsToCache = [
   './',
   './index.html',
@@ -21,7 +21,7 @@ self.addEventListener('activate', event => {
       return Promise.all(
         cacheNames.map(cacheName => {
           if (cacheName !== CACHE_NAME) {
-            return caches.delete(cacheName);
+            return caches.delete(cacheName); // مسح النسخ القديمة (v5 وما قبله)
           }
         })
       );
@@ -31,6 +31,25 @@ self.addEventListener('activate', event => {
 });
 
 self.addEventListener('fetch', event => {
+  // استراتيجية (Network First) للصفحة الرئيسية لضمان تحديث النظام دائماً
+  if (event.request.mode === 'navigate') {
+    event.respondWith(
+      fetch(event.request).then(response => {
+        // إذا وجد التحديث، احفظه في الكاش واعرضه
+        const responseToCache = response.clone();
+        caches.open(CACHE_NAME).then(cache => {
+          cache.put(event.request, responseToCache);
+        });
+        return response;
+      }).catch(() => {
+        // إذا انقطع الإنترنت، اعرض النسخة المحفوظة
+        return caches.match(event.request);
+      })
+    );
+    return;
+  }
+
+  // باقي الملفات (مكتبات، صور) نستخدم لها (Cache First) للتسريع
   event.respondWith(
     caches.match(event.request).then(response => {
       return response || fetch(event.request);
